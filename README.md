@@ -14,7 +14,7 @@ Compared to his custom firmware, this firmware adds:
 - **AdBlock Fast** (ads and malware blocking at DNS level)
 
 And also:
-- **REMOVED:** odhcp, upnp, iptables, avahi, samba, usb storage, ppp and probably more stuff I forgot to mention.
+- **REMOVED:** odhcp, upnp, iptables, avahi, samba, usb storage and probably more stuff I forgot to mention.
 - Added the needed packages to use QoS script [cake-wg-pbr](https://github.com/lynxthecat/cake-wg-pbr)
 - Some compiler optimizations and build hardening options (cortex-a53+crc+crypto; LTO, MOLD, and more).
 - SSH configuration with strong algorithms and key exchange methods. Check the content of [`ssh_hardening.config`](files/etc/ssh/sshd_config.d/ssh_hardening.conf) and [`sshd_config`](files/etc/ssh/sshd_config).
