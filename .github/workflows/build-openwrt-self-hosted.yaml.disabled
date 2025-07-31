@@ -1,0 +1,106 @@
+name: Build OpenWrt for GL-MT6000
+
+permissions:
+  contents: write
+  actions: write
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+  schedule:
+    - cron: "38 4 * * *"
+
+env:
+  REMOTE_REPOSITORY: pesa1234/openwrt
+  CONFIG_FILE: mt6000.config
+  GH_TOKEN: ${{ github.token }}
+
+jobs:
+  check_and_build:
+    name: Check for new commits
+    runs-on: self-hosted
+    outputs:
+      new_commits: ${{ steps.check_commits.outputs.new_commits }}
+      remote_branch: ${{ steps.check_commits.outputs.remote_branch }}
+      release_prefix: ${{ steps.check_commits.outputs.release_prefix }}
+      latest_commit_sha: ${{ steps.check_commits.outputs.latest_commit_sha }}
+    steps:
+      - name: Check for new commits in pesa1234 repo
+        id: check_commits
+        run: |
+          remote_branch=$(git ls-remote https://github.com/${{ env.REMOTE_REPOSITORY }}.git "refs/heads/next-*" | grep -vi 'test' | tail -n1 | sed -e 's|\(.*heads/\)||')
+          [ -n "$remote_branch" ] && latest_commit_sha=$(gh api "repos/${{ env.REMOTE_REPOSITORY }}/commits/${remote_branch}" --jq .sha)
+          [ -z "$latest_commit_sha" ] && { echo "*** COULD NOT GET latest_commit_sha FROM remote_branch=$remote_branch ***" ; exit 1; }
+          gh api "repos/${{ github.repository }}/releases/latest" --jq .body | grep -q "${latest_commit_sha}" && echo "new_commits=false" >> $GITHUB_OUTPUT || echo "new_commits=true" >> $GITHUB_OUTPUT
+          echo "remote_branch=${remote_branch}" >> $GITHUB_OUTPUT
+          echo "release_prefix${remote_branch%.rss*}" >> $GITHUB_OUTPUT
+          echo "latest_commit_sha=$latest_commit_sha" >> $GITHUB_OUTPUT
+
+      - name: Checkout remote repository
+        id: checkout_remote
+        if: github.event_name == 'workflow_dispatch' || steps.check_commits.outputs.new_commits == 'true'
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ env.REMOTE_REPOSITORY }}
+          ref: ${{ steps.check_commits.outputs.remote_branch }}
+
+      - name: Checkout current repository
+        id: checkout_current
+        if: steps.checkout_remote.outcome == 'success'
+        uses: actions/checkout@v4
+        with:
+          path: "builder_repo"
+
+      - name: Setup and Build
+        id: checkout_build
+        if: steps.checkout_current.outcome == 'success'
+        run: |
+          ./scripts/feeds update -a
+          ./scripts/feeds install -a
+          # run again because sometimes it misses some dependencies
+          ./scripts/feeds update -a
+          ./scripts/feeds install -a
+          
+          mv -v builder_repo/files ./
+          sed -i 's|XXXXXX/XXXXXX|${{ github.repository }}|' ./files/usr/bin/upgrade_custom_openwrt || exit 1
+          chmod 755 ./files/usr/bin/upgrade_custom_openwrt
+          mv -v builder_repo/${{ env.CONFIG_FILE }} .config
+          make defconfig
+          
+          make download -j$(nproc) || {
+            echo "Retrying..."
+            sleep 30
+            make download -j1 V=s
+          }
+          make -j$(nproc) || {
+            echo "Retrying..."
+            sleep 30
+            make -j1 V=s
+          }
+          
+          mkdir -p firmware
+          find ./bin -type f \( -iname 'openwrt-*-sysupgrade.bin' -or -iname 'sha256sums' -or -iname 'config.buildinfo' \) -exec mv -v {} ./firmware/ \; ||:
+          mv .config firmware/full.config ||:
+          
+          RELEASE_DATE=$(date +%F)
+          gh release delete "${{ steps.check_commits.outputs.release_prefix }}-${RELEASE_DATE}" --cleanup-tag -y --repo "${{ github.repository }}" ||:
+          gh release create "${{ steps.check_commits.outputs.release_prefix }}-${RELEASE_DATE}" --repo "${{ github.repository }}" --latest --notes "## 📦 OpenWrt Automated Build Release
+          ### 🔄 Main Repository
+          - **Repository:** [${{ env.REMOTE_REPOSITORY }}](https://github.com/${{ env.REMOTE_REPOSITORY }})
+          - **Branch:** ${{ steps.check_commits.outputs.remote_branch }}
+          - **Commit:** ${{ steps.check_commits.outputs.latest_commit_sha }}
+          
+          ### 📝 Build Information
+          - **Target:** [Flint 2 (GL-MT6000)](https://openwrt.org/toh/gl.inet/gl-mt6000)
+          - **Configuration:** [${{ env.CONFIG_FILE }}](${{ env.CONFIG_FILE }})
+          - **WiFi UCODE scripts**
+          - **Wireguard VPN**
+          - **Policy Based Routing**
+          - **Ad Block Fast**
+          - **REMOVED:** odhcp, upnp, iptables, avahi, samba, usb storage..." --title "OpenWrt Custom Release for Flint 2 (${{ steps.check_commits.outputs.release_prefix }}-${RELEASE_DATE})" firmware/*
+          
+          gh api repos/${{ github.repository }}/releases --paginate --jq '.[6:] | .[] | "\(.id) \(.tag_name)"' | while read id tag; do
+            gh api -X DELETE "repos/${{ github.repository }}/releases/$id" && gh api -X DELETE "repos/${{ github.repository }}/git/refs/tags/$tag" 2>/dev/null || true
+          done
