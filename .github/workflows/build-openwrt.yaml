@@ -36,7 +36,7 @@ jobs:
           [ -z "$latest_commit_sha" ] && { echo "*** COULD NOT GET latest_commit_sha FROM remote_branch=$remote_branch ***" ; exit 1; }
           gh api "repos/${{ github.repository }}/releases/latest" --jq .body | grep -q "${latest_commit_sha}" && echo "new_commits=false" >> $GITHUB_OUTPUT || echo "new_commits=true" >> $GITHUB_OUTPUT
           echo "remote_branch=${remote_branch}" >> $GITHUB_OUTPUT
-          echo "release_prefix${remote_branch%.rss*}" >> $GITHUB_OUTPUT
+          echo "release_prefix=${remote_branch%.rss*}" >> $GITHUB_OUTPUT
           echo "latest_commit_sha=$latest_commit_sha" >> $GITHUB_OUTPUT
 
   build:
