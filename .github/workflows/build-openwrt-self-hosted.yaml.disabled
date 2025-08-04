@@ -7,10 +7,10 @@ permissions:
 on:
   workflow_dispatch:
   push:
-    branches:
-      - main
-  schedule:
-    - cron: "38 4 * * *"
+#    branches:
+#      - main
+#  schedule:
+#    - cron: "38 3 * * *"
 
 env:
   REMOTE_REPOSITORY: pesa1234/openwrt
