@@ -104,7 +104,7 @@ jobs:
 
       - name: Create release
         run: |
-          [ "${{ env.WANTEDVERSION }}" = "IPv4" ] && BUILDINFO="- IPv6 and DHCPv6 **DISABLED and partially REMOVED**\n- odhcp, upnp, iptables, avahi, samba, usb storage, ppp... **REMOVED**"
+          [ "${{ env.WANTEDVERSION }}" = "IPv4" ] && BUILDINFO="- IPv6 and DHCPv6 **DISABLED and partially REMOVED**\n- odhcp, upnp, iptables, samba, usb storage, ppp... **REMOVED**"
           
           RELEASE_DATE=$(date +%F)
           gh release delete "${{ needs.check_commits.outputs.release_prefix }}-${RELEASE_DATE}" --cleanup-tag -y --repo "${{ github.repository }}" ||:
