@@ -13,7 +13,6 @@ on:
     - cron: "38 3 * * *"
 
 env:
-  WANTEDVERSION:
   REMOTE_REPOSITORY: pesa1234/openwrt
   CONFIG_FILE: mt6000.config
   GH_TOKEN: ${{ github.token }}
@@ -34,7 +33,7 @@ jobs:
           remote_branch=$(git ls-remote https://github.com/${{ env.REMOTE_REPOSITORY }}.git "refs/heads/next-*" | grep -vi 'test' | tail -n1 | sed -e 's|\(.*heads/\)||')
           [ -n "$remote_branch" ] && latest_commit_sha=$(gh api "repos/${{ env.REMOTE_REPOSITORY }}/commits/${remote_branch}" --jq .sha)
           [ -z "$latest_commit_sha" ] && { echo "*** COULD NOT GET latest_commit_sha FROM remote_branch=$remote_branch ***" ; exit 1; }
-          gh api "repos/${{ github.repository }}/releases/latest" --jq .body | grep -q "${latest_commit_sha}" && echo "new_commits=false" >> $GITHUB_OUTPUT || echo "new_commits=true" >> $GITHUB_OUTPUT
+          gh api "repos/${{ github.repository }}/releases/latest" --jq .body 2>/dev/null | grep -q "${latest_commit_sha}" && echo "new_commits=false" >> $GITHUB_OUTPUT || echo "new_commits=true" >> $GITHUB_OUTPUT
           echo "remote_branch=${remote_branch}" >> $GITHUB_OUTPUT
           echo "release_prefix=${remote_branch%.rss*}" >> $GITHUB_OUTPUT
           echo "latest_commit_sha=$latest_commit_sha" >> $GITHUB_OUTPUT
@@ -47,12 +46,10 @@ jobs:
     steps:
       - name: Install dependencies
         run: |
-          sudo apt update
           sudo apt remove -y '*cloud*' '*firefox*' '*chrome*' '*dotnet*' '*php*'
-          sudo apt full-upgrade -y
+          sudo apt update -y && sudo apt upgrade -y
           sudo apt install -y build-essential clang flex bison g++ gawk gettext libncurses-dev libssl-dev python3-setuptools rsync swig unzip zlib1g-dev file wget llvm
-          sudo apt autoremove -y
-          sudo apt clean -y
+          sudo apt autoremove -y && sudo apt clean -y
 
       - name: Checkout remote repository
         uses: actions/checkout@v4
@@ -74,10 +71,10 @@ jobs:
 
       - name: Setup configuration and custom files
         run: |
-          mv -v builder_repo/${{ env.WANTEDVERSION }}/files ./
+          mv -v builder_repo/files ./
           sed -i 's|XXXXXX/XXXXXX|${{ github.repository }}|' ./files/usr/bin/upgrade_custom_openwrt || exit 1
           chmod 755 ./files/usr/bin/upgrade_custom_openwrt
-          mv -v builder_repo/${{ env.WANTEDVERSION }}/${{ env.CONFIG_FILE }} .config
+          mv -v builder_repo/${{ env.CONFIG_FILE }} .config
           make defconfig
 
       - name: Build firmware
@@ -93,23 +90,20 @@ jobs:
             make -j1 V=s
           }
           mkdir -p firmware
-          find ./bin -type f \( -iname 'openwrt-*-sysupgrade.bin' -or -iname 'sha256sums' -or -iname 'config.buildinfo' \) -exec mv {} ./firmware/ \; ||:
+          find ./bin -type f \( -iname 'openwrt-*-sysupgrade.bin' -or -iname 'sha256sums' -or -iname 'config.buildinfo' \) -exec mv -v {} ./firmware/ \+ ||:
           mv .config firmware/full.config ||:
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: gl-mt6000-images
+          name: gl-mt6000-firmware
           path: firmware/*
 
       - name: Create release
-        run: |
-          [ "${{ env.WANTEDVERSION }}" = "IPv4" ] && BUILDINFO="- IPv6 and DHCPv6 **DISABLED and partially REMOVED**\n- odhcp, upnp, iptables, samba, usb storage, ppp... **REMOVED**"
-          
+        run: |                   
           RELEASE_DATE=$(date +%F)
           gh release delete "${{ needs.check_commits.outputs.release_prefix }}-${RELEASE_DATE}" --cleanup-tag -y --repo "${{ github.repository }}" ||:
-          gh release create "${{ needs.check_commits.outputs.release_prefix }}-${RELEASE_DATE}" --repo "${{ github.repository }}" --latest --notes "## 📦 OpenWrt Automated Build Release
-          ### 🔄 Main Repository
+          gh release create "${{ needs.check_commits.outputs.release_prefix }}-${RELEASE_DATE}" --repo "${{ github.repository }}" --latest -t --notes "### 🔄 Main Repository
           - **Repository:** [${{ env.REMOTE_REPOSITORY }}](https://github.com/${{ env.REMOTE_REPOSITORY }})
           - **Branch:** ${{ needs.check_commits.outputs.remote_branch }}
           - **Commit:** ${{ needs.check_commits.outputs.latest_commit_sha }}
@@ -126,5 +120,5 @@ jobs:
       - name: Clean up old releases
         run: |
           gh api repos/${{ github.repository }}/releases --paginate --jq '.[6:] | .[] | "\(.id) \(.tag_name)"' | while read id tag; do
-            gh api -X DELETE "repos/${{ github.repository }}/releases/$id" && gh api -X DELETE "repos/${{ github.repository }}/git/refs/tags/$tag" 2>/dev/null || true
+            gh api -X DELETE "repos/${{ github.repository }}/releases/$id" && gh api -X DELETE "repos/${{ github.repository }}/git/refs/tags/$tag" 2>/dev/null ||:
           done
