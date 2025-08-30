@@ -113,6 +113,7 @@ jobs:
           - **Configuration:** [${{ env.CONFIG_FILE }}](${{ env.CONFIG_FILE }})
           - **WiFi UCODE scripts**
           - **Wireguard VPN**
+          - **Tailscale**
           - **Policy Based Routing**
           - **banIP**
           - **REMOVED:** odhcp, upnp, iptables, samba, usb storage..." --title "OpenWrt Custom Release for Flint 2 (${{ needs.check_commits.outputs.release_prefix }}-${RELEASE_DATE})" firmware/*
