@@ -47,6 +47,18 @@ jobs:
     if: github.event_name == 'workflow_dispatch' || needs.check_commits.outputs.new_commits == 'true'
     runs-on: ubuntu-latest
     steps:
+    - name: Free up disk space
+    run: |
+      echo "Before cleanup:"
+      df -h
+      sudo rm -rf /usr/share/dotnet
+      sudo rm -rf /opt/ghc
+      sudo rm -rf /usr/local/lib/android
+      sudo rm -rf /usr/local/share/boost
+      sudo rm -rf /home/runner/.cache
+      echo "After cleanup:"
+      df -h
+
       - name: Install dependencies
         run: |
           sudo apt remove -y '*cloud*' '*firefox*' '*chrome*' '*dotnet*' '*php*'
