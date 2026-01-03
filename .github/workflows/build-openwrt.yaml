@@ -30,7 +30,7 @@ jobs:
       - name: Check for new commits in pesa1234 repo
         id: check_commits
         run: |
-          remote_branch=$(git ls-remote https://github.com/${{ env.REMOTE_REPOSITORY }}.git "refs/heads/next-*" | sed -e 's|\(.*heads/\)||' |  grep -vi 'test' | sort -V | tail -n1)
+          remote_branch=$(git ls-remote https://github.com/${{ env.REMOTE_REPOSITORY }}.git "refs/heads/next-*" | sed -e 's|\(.*heads/\)||' | grep -viE 'test|beta' | sort -V | tail -n1)
           [ -n "$remote_branch" ] && latest_commit_sha=$(gh api "repos/${{ env.REMOTE_REPOSITORY }}/commits/${remote_branch}" --jq .sha)
           [ -z "$latest_commit_sha" ] && { echo "*** COULD NOT GET latest_commit_sha FROM remote_branch=$remote_branch ***" ; exit 1; }
           gh api "repos/${{ github.repository }}/releases/latest" --jq .body 2>/dev/null | grep -q "${latest_commit_sha}" && echo "new_commits=false" >> $GITHUB_OUTPUT || echo "new_commits=true" >> $GITHUB_OUTPUT
@@ -105,8 +105,9 @@ jobs:
             make -j1 V=s
           }
           mkdir -p firmware
-          find ./bin -type f \( -iname 'openwrt-*-sysupgrade.bin' -or -iname 'sha256sums' -or -iname 'config.buildinfo' \) -exec mv -v {} ./firmware/ \; ||:
+          find ./bin -type f \( -iname 'openwrt-*-sysupgrade.bin' -or -iname 'config.buildinfo' \) -exec mv -v {} ./firmware/ \; ||:
           mv .config firmware/full.config ||:
+          cd firmware && find -iname 'openwrt-*-sysupgrade.bin' -exec sh -c "sha256sum {} >sha256sums" \; ||:
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
@@ -135,6 +136,6 @@ jobs:
 
       - name: Clean up old releases
         run: |
-          gh api repos/${{ github.repository }}/releases --paginate --jq '.[6:] | .[] | "\(.id) \(.tag_name)"' | while read id tag; do
+          gh api repos/${{ github.repository }}/releases --paginate --jq '.[10:] | .[] | "\(.id) \(.tag_name)"' | while read id tag; do
             gh api -X DELETE "repos/${{ github.repository }}/releases/$id" && gh api -X DELETE "repos/${{ github.repository }}/git/refs/tags/$tag" 2>/dev/null ||:
           done
