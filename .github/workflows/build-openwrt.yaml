@@ -104,28 +104,22 @@ jobs:
           rm -rfv builder_repo
           make defconfig
 
-      - name: Debug who requires iptables (ip_tables.ko)
+      - name: Temp dependency check
         run: |
-          echo "===== DEBUG: IPTABLES ====="
+          make defconfig
+
+          echo "=== WHO DEPENDS ON IPTABLES KERNEL ==="
+
+          grep -R "kmod-ip-tables" feeds/ package/ -n || true
+          grep -R "IP_NF_IPTABLES" feeds/ package/ -n || true
 
           echo ""
-          echo "---- .config (filtered) ----"
-          grep -iE "iptables|ip_tables|kmod-ipt|xt_" .config || true
+          echo "=== CHECK TAILSCALE ==="
+          grep -R "tailscale" feeds/ package/ -n || true
 
           echo ""
-          echo "---- Building (verbose, single-thread) ----"
-          make -j1 V=sc 2>&1 | tee build.log || true
-
-          echo ""
-          echo "---- MATCHES: ip_tables / iptables / xtables ----"
-          grep -iE "ip_tables|iptables|xt_" build.log || true
-
-          echo ""
-          echo "---- MATCHES: kmod-ip-tables dependency ----"
-          grep -i "kmod-ip-tables" build.log || true
-
-          echo ""
-          echo "===== END DEBUG ====="
+          echo "=== CHECK PBR ==="
+          grep -R "pbr" feeds/ package/ -n || true
 
       - name: Build firmware
         run: |
