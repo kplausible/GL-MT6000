@@ -89,6 +89,9 @@ jobs:
           # run again because sometimes it misses some dependencies
           ./scripts/feeds install -a
 
+          # FIX LPAC CIRCULAR DEPENDENCY WARNING
+          find feeds -path "*lpac*" -type d -exec rm -rf {} + || true
+
       - name: Setup configuration and custom files
         run: |
           # delete unneeded folders and patch files with repository info
