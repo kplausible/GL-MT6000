@@ -104,6 +104,29 @@ jobs:
           rm -rfv builder_repo
           make defconfig
 
+      - name: Debug who requires iptables (ip_tables.ko)
+        run: |
+          echo "===== DEBUG: IPTABLES ====="
+
+          echo ""
+          echo "---- .config (filtered) ----"
+          grep -iE "iptables|ip_tables|kmod-ipt|xt_" .config || true
+
+          echo ""
+          echo "---- Building (verbose, single-thread) ----"
+          make -j1 V=sc 2>&1 | tee build.log || true
+
+          echo ""
+          echo "---- MATCHES: ip_tables / iptables / xtables ----"
+          grep -iE "ip_tables|iptables|xt_" build.log || true
+
+          echo ""
+          echo "---- MATCHES: kmod-ip-tables dependency ----"
+          grep -i "kmod-ip-tables" build.log || true
+
+          echo ""
+          echo "===== END DEBUG ====="
+
       - name: Build firmware
         run: |
           make download -j$(nproc) || {
