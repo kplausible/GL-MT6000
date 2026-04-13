@@ -104,23 +104,6 @@ jobs:
           rm -rfv builder_repo
           make defconfig
 
-      - name: Temp dependency check
-        run: |
-          make defconfig
-
-          echo "=== WHO DEPENDS ON IPTABLES KERNEL ==="
-
-          grep -R "kmod-ip-tables" feeds/ package/ -n || true
-          grep -R "IP_NF_IPTABLES" feeds/ package/ -n || true
-
-          echo ""
-          echo "=== CHECK TAILSCALE ==="
-          grep -R "tailscale" feeds/ package/ -n || true
-
-          echo ""
-          echo "=== CHECK PBR ==="
-          grep -R "pbr" feeds/ package/ -n || true
-
       - name: Build firmware
         run: |
           make download -j$(nproc) || {
