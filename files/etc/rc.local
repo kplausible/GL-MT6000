@@ -4,3 +4,13 @@
 # SSH hardening
 awk '$5 >= 3071' /etc/ssh/moduli > /etc/ssh/moduli.safe
 mv /etc/ssh/moduli.safe /etc/ssh/moduli
+
+# Wait for WAN interface
+for i in 1 2 3 4 5; do
+    ip link show eth1 >/dev/null 2>&1 && break
+    sleep 1
+done
+
+# Tailscale / UDP GRO optimization
+ethtool -K eth1 rx-gro-list off
+ethtool -K eth1 rx-udp-gro-forwarding on
