@@ -72,13 +72,13 @@ jobs:
           sudo apt install -y perl xz-utils zstd liblzma-dev libzstd-dev
 
       - name: Checkout remote repository
-        uses: actions/checkout@v6.0.2
+        uses: actions/checkout@v7.0.1
         with:
           repository: ${{ env.REMOTE_REPOSITORY }}
           ref: ${{ needs.check_commits.outputs.remote_branch }}
 
       - name: Checkout current repository
-        uses: actions/checkout@v6.0.2
+        uses: actions/checkout@v7.0.1
         with:
           path: "builder_repo"
 
@@ -122,7 +122,7 @@ jobs:
           cd firmware && sha256sum openwrt-*-sysupgrade.bin >sha256sums ||:
 
       - name: Upload artifacts
-        uses: actions/upload-artifact@v7.0.0
+        uses: actions/upload-artifact@v7.0.1
         with:
           name: gl-mt6000-firmware
           path: firmware/*
